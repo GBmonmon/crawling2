@@ -5,6 +5,8 @@ import numpy as np
 from datetime import datetime
 from datetime import timedelta
 import time
+import sqlite3
+
 
 data = {
     'response': 'json',
@@ -37,6 +39,24 @@ print(df)
 #crawling
 crawl_date = datetime(2019,3,12) # start_date
 
+# create database cursor
+conn = sqlite3.connect('data.db')
+c = conn.cursor()
+
+# create table
+
+c.execute('''CREATE TABLE IF NOT EXISTS data1
+             (
+                 公司 text,
+                 台股萬點 real,
+                 htmlCode text,
+                 漲跌 real,
+                 百分比 real
+             )
+             ''')
+conn.commit()
+
+
 for i in range(365):
     crawl_date -= timedelta(1)
     crawl_date_str = datetime.strftime(crawl_date, '%Y%m%d')
@@ -45,16 +65,28 @@ for i in range(365):
 
     # 證交所回覆有資料
     if(jres['stat']=='OK'):
-        print(crawl_date_str, ': crawling data...')
-        # 將讀取回的json轉成的DataFrame(df_temp)
-        df_temp = pd.DataFrame(jres['data1'],columns=jres['fields1'])
+        dataToFetch = jres['data1']
 
-        # load'漲跌百分比(%)' from df.temp  to df
-        row_data = list(df_temp['漲跌百分比(%)'])
-        row_data.append(crawl_date_str)
-        df.loc[len(df)] = row_data
+        for index in range(len(dataToFetch)):
+            #print(dataToFetch[index],crawl_date_str )
+            公司 = dataToFetch[index][0]
+            台股萬點 = dataToFetch[index][1]
+            htmlCode = dataToFetch[index][2]
+            漲跌 = dataToFetch[index][3]
+            百分比 = dataToFetch[index][4]
+            print('Inserting: ',公司,台股萬點,htmlCode,漲跌,百分比)
+
+            c.execute('''
+               INSERT INTO data1 (公司,台股萬點,htmlCode,漲跌,百分比)
+                VALUES(?,?,?,?,?)
+            ''',(公司,台股萬點,htmlCode,漲跌,百分比))
+        conn.commit()
+
+
+
     else:
         print(crawl_date_str, ': no data')
 
     # sleep 3 sec avoid blocked
     time.sleep(3)
+conn.close()
